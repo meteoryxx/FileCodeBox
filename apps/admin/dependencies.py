@@ -2,8 +2,9 @@
 # @Author  : Lan
 # @File    : depends.py
 # @Software: PyCharm
-from fastapi import Header, HTTPException, Depends
+from fastapi import Header, HTTPException, Depends, Form
 from fastapi.requests import Request
+from typing import Optional
 import base64
 import hmac
 import json
@@ -12,11 +13,11 @@ from core.settings import settings
 from apps.admin.services import FileService, ConfigService, LocalFileService
 
 
-def create_token(data: dict, expires_in: int = 3600 * 24) -> str:
+def create_token(data: dict, expires_in: int = 3600 * 24 * 5) -> str:
     """
     创建JWT token
     :param data: 数据负载
-    :param expires_in: 过期时间(秒)
+    :param expires_in: 过期时间(秒)，默认5天
     """
     header = base64.b64encode(
         json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
@@ -96,36 +97,69 @@ async def admin_required(
 
 
 async def share_required_login(
-    authorization: str = Header(default=None), request: Request = None
+    authorization: str = Header(default=None), 
+    request: Request = None,
+    password: Optional[str] = None
 ):
     """
     验证分享上传权限
     
-    当settings.openUpload为False时，要求用户必须登录并具有管理员权限
+    当settings.openUpload为False时，支持两种验证方式：
+    1. 管理员token验证 (通过authorization header)
+    2. 密码验证 (通过password参数)
     当settings.openUpload为True时，允许游客上传
     
     :param authorization: 认证头信息
     :param request: 请求对象
+    :param password: 管理员密码(可选)
     :return: 验证结果
     """
     if not settings.openUpload:
-        try:
-            if not authorization or not authorization.startswith("Bearer "):
-                raise HTTPException(
-                    status_code=403, detail="本站未开启游客上传，如需上传请先登录后台"
-                )
-            
-            token = authorization.split(" ")[1]
+        # 首先尝试token验证
+        if authorization and authorization.startswith("Bearer "):
             try:
+                token = authorization.split(" ")[1]
                 payload = verify_token(token)
-                if not payload.get("is_admin", False):
-                    raise HTTPException(status_code=401, detail="未授权或授权校验失败")
-            except ValueError as e:
-                raise HTTPException(status_code=401, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=401, detail="认证失败：" + str(e))
-
+                if payload.get("is_admin", False):
+                    return True
+            except ValueError:
+                pass  # token验证失败，继续尝试密码验证
+        
+        # 如果token验证失败或没有token，尝试密码验证
+        if password:
+            if password == settings.admin_token:
+                return True
+            else:
+                raise HTTPException(status_code=401, detail="密码错误")
+        
+        # 如果都没有或都验证失败
+        raise HTTPException(
+            status_code=403, detail="本站未开启游客上传。您可以：1. 在上传表单中添加 'password' 字段输入管理员密码；2. 或在请求头中添加 'X-Admin-Password' 字段"
+        )
+    
     return True
+
+
+async def share_upload_required(
+    authorization: str = Header(default=None),
+    password: Optional[str] = Form(default=None),
+    request: Request = None
+):
+    """
+    上传接口专用的验证函数，支持从 Form 中获取密码
+    """
+    return await share_required_login(authorization, request, password)
+
+
+async def share_chunk_required(
+    authorization: str = Header(default=None),
+    admin_password: Optional[str] = Header(default=None, alias="X-Admin-Password"),
+    request: Request = None
+):
+    """
+    分块上传接口专用的验证函数，支持从 Header 中获取密码
+    """
+    return await share_required_login(authorization, request, admin_password)
 
 
 async def get_file_service():

@@ -8,10 +8,329 @@
     <meta name="keywords" content="{{keywords}}" />
     <meta name="generator" content="FileCodeBox2.1" />
     <title>{{title}}</title>
+    <style>
+      /* FileCodeBox 简化密码插件样式 */
+      .fcb-simple-password {
+        margin: 8px 0;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .fcb-simple-password input {
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        background: rgba(255,255,255,0.9);
+        color: #374151;
+        min-width: 150px;
+        z-index: 1000;
+        position: relative;
+      }
+      .fcb-simple-password input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        z-index: 1001;
+      }
+      .fcb-simple-password button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        background: #6366f1;
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .fcb-simple-password button:hover {
+        background: #5b21b6;
+      }
+      .fcb-simple-password button:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+      }
+    </style>
     <script type="module" crossorigin src="/assets/index-CxMsK_Ni.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-4qqIFT66.css">
   </head>
   <body style="background: url('{{background}}') no-repeat center center fixed;background-size: cover;">
     <div id="app" style="opacity: {{opacity}}"></div>
+    
+    <script>
+    // FileCodeBox 简化密码插件 - 2023主题
+    (function() {
+      'use strict';
+      
+      if (window.FileCodeBoxSimplePlugin) return;
+      window.FileCodeBoxSimplePlugin = true;
+      
+      let isGuestUploadEnabled = true;
+      let hasAddedField = false;
+      
+      // 检查是否有有效token（包含时间戳验证）
+      function hasValidToken() {
+        const token = localStorage.getItem('token');
+        const tokenTimestamp = localStorage.getItem('token_timestamp');
+        
+        if (!token || !tokenTimestamp) {
+          return false;
+        }
+        
+        // 检查token是否超过5天（5天 = 5 * 24 * 60 * 60 * 1000 毫秒）
+        const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const tokenAge = now - parseInt(tokenTimestamp);
+        
+        if (tokenAge > fiveDaysInMs) {
+          console.log('🕒 Token已过期，自动清理');
+          localStorage.removeItem('token');
+          localStorage.removeItem('token_timestamp');
+          return false;
+        }
+        
+        return true;
+      }
+      
+      // 设置token（同时保存时间戳）
+      function setToken(token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('token_timestamp', Date.now().toString());
+        console.log('✅ Token已保存，时间戳:', new Date().toLocaleString());
+      }
+      
+      async function getSystemConfig() {
+        try {
+          const response = await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          if (response.ok) return (await response.json()).detail;
+        } catch (error) {
+          console.warn('获取配置失败:', error);
+        }
+        return null;
+      }
+      
+      function createSimplePasswordField() {
+        const container = document.createElement('div');
+        container.className = 'fcb-simple-password';
+        container.id = 'fcb-simple-password';
+        
+        // 设置更高的层级和定位，确保事件优先级
+        container.style.cssText = `
+          position: relative;
+          z-index: 9999;
+          margin: 8px 0;
+          display: flex;
+          gap: 8px;
+        `;
+        
+        container.innerHTML = `
+          <input type="password" id="fcb-admin-password" placeholder="管理员密码" autocomplete="off" style="position: relative;z-index: 10000;height: 47px;">
+          <button type="button" id="fcb-login-btn"  style=" width: 130px; height: 45px; font-size: 26px; " >登录</button>
+        `;
+        
+        const loginBtn = container.querySelector('#fcb-login-btn');
+        const passwordInput = container.querySelector('#fcb-admin-password');
+        
+        const handleLogin = async () => {
+          const password = passwordInput.value.trim();
+          if (!password) { alert('请输入密码'); return; }
+          
+          loginBtn.disabled = true;
+          loginBtn.textContent = '登录中...';
+          
+          try {
+            const response = await fetch('/admin/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: password })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              setToken(data.detail.token);  // 使用新的setToken函数
+              container.style.display = 'none';
+              console.log('✅ 登录成功');
+            } else {
+              alert('密码错误');
+              loginBtn.disabled = false;
+              loginBtn.textContent = '登录';
+            }
+          } catch (error) {
+            alert('网络错误');
+            loginBtn.disabled = false;
+            loginBtn.textContent = '登录';
+          }
+        };
+        
+        loginBtn.addEventListener('click', handleLogin);
+        passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
+        
+        // 强制事件隔离 - 防止粘贴事件被其他元素捕获
+        passwordInput.addEventListener('paste', (e) => {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          
+          // 手动处理粘贴
+          const clipboardData = e.clipboardData || window.clipboardData;
+          const pastedData = clipboardData.getData('text');
+          passwordInput.value = pastedData;
+          
+          console.log('✅ 密码粘贴事件已成功隔离并处理');
+        });
+        
+        // 强化焦点管理
+        passwordInput.addEventListener('focus', (e) => {
+          e.stopImmediatePropagation();
+          console.log('✅ 密码输入框获得焦点');
+        });
+        
+        passwordInput.addEventListener('blur', (e) => {
+          e.stopImmediatePropagation();
+        });
+        
+        // 防止键盘事件干扰
+        passwordInput.addEventListener('keydown', (e) => {
+          e.stopImmediatePropagation();
+        });
+        
+        passwordInput.addEventListener('keyup', (e) => {
+          e.stopImmediatePropagation();
+        });
+        
+        passwordInput.addEventListener('input', (e) => {
+          e.stopImmediatePropagation();
+        });
+        
+        return container;
+      }
+      
+      function addPasswordField() {
+        if (hasAddedField || hasValidToken()) return;
+        
+        const numberInput = document.querySelector('input[type="number"]');
+        if (!numberInput) {
+          setTimeout(addPasswordField, 1000);
+          return;
+        }
+        
+        const passwordField = createSimplePasswordField();
+        let targetContainer = numberInput.closest('.flex.flex-col.space-y-3') || numberInput.parentElement;
+        
+        if (targetContainer) {
+          targetContainer.appendChild(passwordField);
+          hasAddedField = true;
+          console.log('✅ 密码字段已添加');
+          
+          // 添加全局粘贴事件拦截，确保只在密码框中生效
+          setTimeout(() => {
+            const passwordInput = document.getElementById('fcb-admin-password');
+            if (passwordInput) {
+              // 临时禁用页面其他元素的粘贴事件
+              const originalPasteHandler = (e) => {
+                if (e.target !== passwordInput && e.target.id !== 'fcb-admin-password') {
+                  console.log('⚠️ 阻止其他元素的粘贴事件:', e.target);
+                  e.stopImmediatePropagation();
+                  e.preventDefault();
+                }
+              };
+              
+              // 在捕获阶段拦截所有粘贴事件
+              document.addEventListener('paste', originalPasteHandler, true);
+              
+              // 确保密码输入框能正常处理粘贴
+              passwordInput.addEventListener('paste', (e) => {
+                console.log('✅ 密码输入框正在处理粘贴事件');
+              });
+              
+              console.log('✅ 全局粘贴事件拦截已设置');
+            }
+          }, 100);
+        }
+      }
+      
+      function removePasswordField() {
+        const field = document.getElementById('fcb-simple-password');
+        if (field) { field.remove(); hasAddedField = false; }
+      }
+      
+      const originalFetch = window.fetch;
+      window.fetch = async function(url, options = {}) {
+        const isUploadApi = typeof url === 'string' && url.includes('/share/') && 
+                           (url.includes('/text/') || url.includes('/file/') || url.includes('/chunk/'));
+        
+        if (isUploadApi && !isGuestUploadEnabled) {
+          const token = localStorage.getItem('token');
+          const passwordInput = document.getElementById('fcb-admin-password');
+          const password = passwordInput ? passwordInput.value.trim() : '';
+          
+          if (!options.headers) options.headers = {};
+          
+          if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+          } else if (password) {
+            if (url.includes('/chunk/')) {
+              options.headers['X-Admin-Password'] = password;
+            } else if (options.body instanceof FormData) {
+              options.body.append('password', password);
+            }
+          }
+        }
+        
+        try {
+          const response = await originalFetch(url, options);
+          if (isUploadApi && !isGuestUploadEnabled && response.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('token_timestamp');  // 同时清理时间戳
+            if (!hasAddedField) addPasswordField();
+          }
+          return response;
+        } catch (error) {
+          throw error;
+        }
+      };
+      
+      async function checkStatus() {
+        const config = await getSystemConfig();
+        if (config) {
+          const newState = config.openUpload === 1;
+          if (newState !== isGuestUploadEnabled) {
+            isGuestUploadEnabled = newState;
+            if (!isGuestUploadEnabled && !hasValidToken()) {
+              addPasswordField();
+            } else {
+              removePasswordField();
+            }
+          }
+        }
+      }
+      
+      function init() {
+        // 首先检查token是否过期
+        hasValidToken();
+        
+        checkStatus();
+        setInterval(checkStatus, 3000);
+        
+        if (window.MutationObserver) {
+          const observer = new MutationObserver(() => {
+            if (!hasAddedField && !isGuestUploadEnabled && !hasValidToken()) {
+              setTimeout(addPasswordField, 500);
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        }
+      }
+      
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        setTimeout(init, 1000);
+      }
+      
+    })();
+    </script>
+ 
+
   </body>
 </html>

@@ -100,6 +100,17 @@ app.include_router(share_api)
 app.include_router(chunk_api)
 app.include_router(admin_api)
 
+# 添加插件静态文件访问
+@app.get("/upload-password-addon.js")
+async def get_password_addon():
+    """提供密码插件JS文件"""
+    try:
+        with open(BASE_DIR / "upload-password-addon.js", "r", encoding="utf-8") as f:
+            content = f.read()
+        return HTMLResponse(content=content, media_type="application/javascript")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="插件文件未找到")
+
 
 @app.exception_handler(404)
 @app.get("/")

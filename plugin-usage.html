@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileCodeBox 上传密码插件使用说明</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .step {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 FileCodeBox 上传密码插件</h1>
+    
+    <p>这个插件可以为 FileCodeBox 添加密码输入功能，当游客上传关闭时自动显示密码输入框。</p>
+    
+    <h2>📥 插件功能</h2>
+    <ul>
+        <li>自动检测游客上传状态（<code>openUpload</code>）</li>
+        <li>当游客上传关闭时，自动在上传区域添加密码输入框</li>
+        <li>拦截上传请求，自动添加密码验证</li>
+        <li>支持文件上传、文本分享和分块上传</li>
+        <li>提供友好的错误提示和成功反馈</li>
+    </ul>
+    
+    <h2>🚀 使用方法</h2>
+    
+    <div class="step">
+        <h3>方法一：浏览器书签（推荐）</h3>
+        <p>创建一个浏览器书签，点击即可启用插件：</p>
+        <div class="code-block">
+            <strong>书签名称：</strong> FileCodeBox密码插件<br>
+            <strong>书签地址：</strong>
+            <textarea style="width: 100%; height: 60px; font-family: monospace; font-size: 12px;" readonly>javascript:(function(){if(window.FileCodeBoxPasswordAddon){alert('插件已经运行中！');return;}var script=document.createElement('script');script.src='http://localhost:12345/upload-password-addon.js?t='+Date.now();script.onload=function(){window.FileCodeBoxPasswordAddon=true;alert('FileCodeBox密码插件已启用！');};document.head.appendChild(script);})();</textarea>
+        </div>
+        <p><strong>使用步骤：</strong></p>
+        <ol>
+            <li>复制上面的书签地址</li>
+            <li>在浏览器中添加书签，粘贴地址</li>
+            <li>访问 FileCodeBox 页面</li>
+            <li>点击书签启用插件</li>
+        </ol>
+    </div>
+    
+    <div class="step">
+        <h3>方法二：控制台注入</h3>
+        <p>在浏览器开发者工具控制台中运行：</p>
+        <div class="code-block">
+<pre>// 动态加载插件
+var script = document.createElement('script');
+script.src = 'http://localhost:12345/upload-password-addon.js?t=' + Date.now();
+document.head.appendChild(script);</pre>
+        </div>
+    </div>
+    
+    <div class="step">
+        <h3>方法三：静态引入</h3>
+        <p>如果您有权限修改 HTML 文件，可以直接引入：</p>
+        <div class="code-block">
+<pre>&lt;script src="/upload-password-addon.js"&gt;&lt;/script&gt;</pre>
+        </div>
+    </div>
+    
+    <h2>🔧 配置说明</h2>
+    
+    <div class="warning">
+        <strong>⚠️ 重要提示</strong><br>
+        插件文件需要放在 FileCodeBox 服务器上，确保可以通过 HTTP 访问。
+        将 <code>upload-password-addon.js</code> 文件放到 FileCodeBox 根目录或静态资源目录中。
+    </div>
+    
+    <h3>插件配置项</h3>
+    <div class="code-block">
+<pre>const CONFIG = {
+    checkInterval: 1000,              // 检查页面状态间隔（毫秒）
+    apiUrl: '/',                      // 配置接口URL
+    passwordFieldName: 'password',    // 密码字段名
+    headerPasswordName: 'X-Admin-Password'  // 分块上传密码头名称
+};</pre>
+    </div>
+    
+    <h2>🎯 工作原理</h2>
+    <ol>
+        <li><strong>状态检测：</strong>定期调用 <span class="highlight">POST /</span> 接口获取 <code>openUpload</code> 状态</li>
+        <li><strong>UI注入：</strong>当检测到游客上传关闭时，自动在页面中注入密码输入框</li>
+        <li><strong>请求拦截：</strong>拦截 <code>fetch</code> 和 <code>XMLHttpRequest</code> 上传请求</li>
+        <li><strong>密码添加：</strong>自动为上传请求添加密码参数</li>
+        <li><strong>反馈显示：</strong>根据服务器响应显示成功或错误消息</li>
+    </ol>
+    
+    <h2>📝 支持的上传方式</h2>
+    <ul>
+        <li><strong>文件上传：</strong>在 FormData 中添加 <code>password</code> 字段</li>
+        <li><strong>文本分享：</strong>在 FormData 中添加 <code>password</code> 字段</li>
+        <li><strong>分块上传：</strong>在请求头中添加 <code>X-Admin-Password</code></li>
+    </ul>
+    
+    <h2>🔍 故障排除</h2>
+    
+    <h3>常见问题</h3>
+    <ul>
+        <li><strong>插件无法加载：</strong>检查 JS 文件路径是否正确</li>
+        <li><strong>密码框不显示：</strong>确认游客上传已关闭（<code>openUpload: 0</code>）</li>
+        <li><strong>密码验证失败：</strong>确认输入的密码与管理员密码一致</li>
+        <li><strong>上传仍然失败：</strong>检查浏览器控制台是否有错误信息</li>
+    </ul>
+    
+    <h3>调试信息</h3>
+    <p>插件会在浏览器控制台输出调试信息，可以通过 F12 开发者工具查看。</p>
+    
+    <div class="step">
+        <h3>🔧 部署插件到服务器</h3>
+        <p>将插件文件放到 FileCodeBox 服务器目录：</p>
+        <div class="code-block">
+<pre># 方法1: 放到项目根目录
+cp upload-password-addon.js /path/to/FileCodeBox/
+
+# 方法2: 放到静态资源目录（如果有的话）
+cp upload-password-addon.js /path/to/FileCodeBox/static/
+
+# 方法3: 通过 FastAPI 静态文件服务
+# 修改 main.py 添加静态文件路由</pre>
+        </div>
+    </div>
+    
+    <p><em>现在您可以在 FileCodeBox 页面上使用密码上传功能了！🎉</em></p>
+</body>
+</html>
