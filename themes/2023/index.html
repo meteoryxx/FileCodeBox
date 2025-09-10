@@ -78,8 +78,8 @@
           return false;
         }
         
-        // 检查token是否超过5天（5天 = 5 * 24 * 60 * 60 * 1000 毫秒）
-        const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000;
+        // 检查token是否超过30天
+        const fiveDaysInMs = 30 * 24 * 60 * 60 * 1000;
         const now = Date.now();
         const tokenAge = now - parseInt(tokenTimestamp);
         

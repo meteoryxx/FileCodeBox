@@ -83,8 +83,8 @@
       return false;
     }
     
-    // 检查token是否超过5天（5天 = 5 * 24 * 60 * 60 * 1000 毫秒）
-    const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000;
+    // 检查token是否超过30天
+    const fiveDaysInMs = 30 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     const tokenAge = now - parseInt(tokenTimestamp);
     
@@ -230,16 +230,28 @@
       hasAddedField = true;
       console.log('✅ 密码字段已添加');
       
-      // 添加全局粘贴事件拦截，确保只在密码框中生效
+      // 添加条件性粘贴事件拦截，只在特定页面生效
       setTimeout(() => {
         const passwordInput = document.getElementById('fcb-admin-password');
         if (passwordInput) {
-          // 临时禁用页面其他元素的粘贴事件
+          // 检查当前页面路径，只在非根目录页面启用防粘贴
+          const shouldPreventPaste = () => {
+            const currentPath = window.location.hash || window.location.pathname;
+            // 如果是根目录 /#/ 或取件页面，允许正常粘贴
+            return !(currentPath === '#/' || currentPath === '/' || currentPath.includes('#/send') || currentPath.includes('/send'));
+          };
+          
+          // 条件性禁用页面其他元素的粘贴事件
           const originalPasteHandler = (e) => {
             if (e.target !== passwordInput && e.target.id !== 'fcb-admin-password') {
-              console.log('⚠️ 阻止其他元素的粘贴事件:', e.target);
-              e.stopImmediatePropagation();
-              e.preventDefault();
+              // 只在需要的页面阻止粘贴
+              if (shouldPreventPaste()) {
+                console.log('⚠️ 阻止其他元素的粘贴事件:', e.target);
+                e.stopImmediatePropagation();
+                e.preventDefault();
+              } else {
+                console.log('✅ 允许在当前页面粘贴:', window.location.hash);
+              }
             }
           };
           
@@ -251,7 +263,7 @@
             console.log('✅ 密码输入框正在处理粘贴事件');
           });
           
-          console.log('✅ 全局粘贴事件拦截已设置');
+          console.log('✅ 条件性粘贴事件拦截已设置');
         }
       }, 100);
     }
